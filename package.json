@@ -1,0 +1,63 @@
+{
+  "name": "azure-devops-test-helper",
+  "version": "0.0.1",
+  "description": "Import JSON result with attachments into Azure Test Plan",
+  "author": "Duc Toan <ductoan0295@gmail.com>",
+  "homepage": "https://github.com/ductoan0295/azure-devops-test-helper",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:ductoan0295/azure-devops-test-helper.git"
+  },
+  "license": "MIT",
+  "keywords": [
+    "import",
+    "azure devops",
+    "test",
+    "test plan",
+    "result importer",
+    "azure",
+    "typescript"
+  ],
+  "bugs": {
+    "url": "https://github.com/ductoan0295/azure-devops-test-helper/issues"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": [
+      {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      }
+    ],
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig-esm.json",
+    "lint": "eslint ./src",
+    "prettier:write": "prettier --write ./**",
+    "detect-dup-code": "jscpd ./src/"
+  },
+  "dependencies": {
+    "azure-devops-node-api": "^12.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^18.15.11",
+    "@typescript-eslint/eslint-plugin": "^5.57.0",
+    "@typescript-eslint/parser": "^5.57.0",
+    "@wdio/types": "^8.6.8",
+    "eslint": "^8.37.0",
+    "jscpd": "^3.5.4",
+    "prettier": "^2.8.7",
+    "typescript": "^5.0.2"
+  },
+  "typeScriptVersion": "3.8.3",
+  "engines": {
+    "node": "^16.13 || >=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

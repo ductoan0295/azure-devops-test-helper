@@ -1,0 +1,8 @@
+node_modules
+dist
+.eslintignore
+.gitignore
+.prettierignore
+README.md
+LICENSE-MIT
+*.ps1
