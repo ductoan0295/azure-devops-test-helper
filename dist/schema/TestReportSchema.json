@@ -1,0 +1,754 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "definitions": {
+        "BuildReference": {
+            "description": "Reference to a build.",
+            "properties": {
+                "branchName": {
+                    "description": "Branch name.",
+                    "type": "string"
+                },
+                "buildSystem": {
+                    "description": "Build system.",
+                    "type": "string"
+                },
+                "definitionId": {
+                    "description": "Build Definition ID.",
+                    "type": "number"
+                },
+                "id": {
+                    "description": "Build ID.",
+                    "type": "number"
+                },
+                "number": {
+                    "description": "Build Number.",
+                    "type": "string"
+                },
+                "repositoryId": {
+                    "description": "Repository ID.",
+                    "type": "string"
+                },
+                "uri": {
+                    "description": "Build URI.",
+                    "type": "string"
+                }
+            },
+            "type": "object"
+        },
+        "CustomTestField": {
+            "description": "A custom field information. Allowed Key : Value pairs - ( AttemptId: int value, IsTestResultFlaky: bool)",
+            "properties": {
+                "fieldName": {
+                    "description": "Field Name.",
+                    "type": "string"
+                },
+                "value": {
+                    "description": "Field value."
+                }
+            },
+            "required": [
+                "fieldName",
+                "value"
+            ],
+            "type": "object"
+        },
+        "FailingSince": {
+            "description": "Failing since information of a test result.",
+            "properties": {
+                "build": {
+                    "$ref": "#/definitions/BuildReference",
+                    "description": "Build reference since failing."
+                },
+                "date": {
+                    "description": "Time since failing(UTC).",
+                    "format": "date-time",
+                    "type": "string"
+                },
+                "release": {
+                    "$ref": "#/definitions/ReleaseReference",
+                    "description": "Release reference since failing."
+                }
+            },
+            "required": [
+                "date"
+            ],
+            "type": "object"
+        },
+        "IdentityRef": {
+            "properties": {
+                "_links": {
+                    "description": "This field contains zero or more interesting links about the graph subject. These links may be invoked to obtain additional relationships or more detailed information about this graph subject."
+                },
+                "descriptor": {
+                    "description": "The descriptor is the primary way to reference the graph subject while the system is running. This field will uniquely identify the same graph subject across both Accounts and Organizations.",
+                    "type": "string"
+                },
+                "directoryAlias": {
+                    "description": "Deprecated - Can be retrieved by querying the Graph user referenced in the \"self\" entry of the IdentityRef \"_links\" dictionary",
+                    "type": "string"
+                },
+                "displayName": {
+                    "description": "This is the non-unique display name of the graph subject. To change this field, you must alter its value in the source provider.",
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "imageUrl": {
+                    "description": "Deprecated - Available in the \"avatar\" entry of the IdentityRef \"_links\" dictionary",
+                    "type": "string"
+                },
+                "inactive": {
+                    "description": "Deprecated - Can be retrieved by querying the Graph membership state referenced in the \"membershipState\" entry of the GraphUser \"_links\" dictionary",
+                    "type": "boolean"
+                },
+                "isAadIdentity": {
+                    "description": "Deprecated - Can be inferred from the subject type of the descriptor (Descriptor.IsAadUserType/Descriptor.IsAadGroupType)",
+                    "type": "boolean"
+                },
+                "isContainer": {
+                    "description": "Deprecated - Can be inferred from the subject type of the descriptor (Descriptor.IsGroupType)",
+                    "type": "boolean"
+                },
+                "isDeletedInOrigin": {
+                    "type": "boolean"
+                },
+                "profileUrl": {
+                    "description": "Deprecated - not in use in most preexisting implementations of ToIdentityRef",
+                    "type": "string"
+                },
+                "uniqueName": {
+                    "description": "Deprecated - use Domain+PrincipalName instead",
+                    "type": "string"
+                },
+                "url": {
+                    "description": "This url is the full route to the source resource of this graph subject.",
+                    "type": "string"
+                }
+            },
+            "type": "object"
+        },
+        "ReleaseReference": {
+            "description": "Reference to a release.",
+            "properties": {
+                "attempt": {
+                    "description": "Number of Release Attempt.",
+                    "type": "number"
+                },
+                "creationDate": {
+                    "description": "Release Creation Date(UTC).",
+                    "format": "date-time",
+                    "type": "string"
+                },
+                "definitionId": {
+                    "description": "Release definition ID.",
+                    "type": "number"
+                },
+                "environmentCreationDate": {
+                    "description": "Environment creation Date(UTC).",
+                    "format": "date-time",
+                    "type": "string"
+                },
+                "environmentDefinitionId": {
+                    "description": "Release environment definition ID.",
+                    "type": "number"
+                },
+                "environmentDefinitionName": {
+                    "description": "Release environment definition name.",
+                    "type": "string"
+                },
+                "environmentId": {
+                    "description": "Release environment ID.",
+                    "type": "number"
+                },
+                "environmentName": {
+                    "description": "Release environment name.",
+                    "type": "string"
+                },
+                "id": {
+                    "description": "Release ID.",
+                    "type": "number"
+                },
+                "name": {
+                    "description": "Release name.",
+                    "type": "string"
+                }
+            },
+            "type": "object"
+        },
+        "ShallowReference": {
+            "description": "An abstracted reference to some other resource. This class is used to provide the build data contracts with a uniform way to reference other resources in a way that provides easy traversal through links.",
+            "properties": {
+                "id": {
+                    "description": "ID of the resource",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "Name of the linked resource (definition name, controller name, etc.)",
+                    "type": "string"
+                },
+                "url": {
+                    "description": "Full http link to the resource",
+                    "type": "string"
+                }
+            },
+            "type": "object"
+        },
+        "SharedStepModel": {
+            "description": "Reference to shared step workitem.",
+            "properties": {
+                "id": {
+                    "description": "WorkItem shared step ID.",
+                    "type": "number"
+                },
+                "revision": {
+                    "description": "Shared step workitem revision.",
+                    "type": "number"
+                }
+            },
+            "required": [
+                "id",
+                "revision"
+            ],
+            "type": "object"
+        },
+        "TestActionResultModel": {
+            "description": "Represents a test step result.",
+            "properties": {
+                "actionPath": {
+                    "description": "Path identifier for test step in test case workitem. Note: 1) It is represented in Hexadecimal format with 8 digits for a step. 2) Internally, the step ID value for first step starts with 2 so actionPath = 00000002 step 9, will have an ID = 10 and actionPath = 0000000a step 15, will have an ID =16 and actionPath = 00000010 3) actionPath of shared step is concatenated with the parent step of test case. Example, it would be something of type -  0000000300000001 where 00000003 denotes action path of test step and 00000001 denotes action path for shared step",
+                    "type": "string"
+                },
+                "comment": {
+                    "description": "Comment in result.",
+                    "type": "string"
+                },
+                "completedDate": {
+                    "description": "Time when execution completed(UTC).",
+                    "format": "date-time",
+                    "type": "string"
+                },
+                "durationInMs": {
+                    "description": "Duration of execution.",
+                    "type": "number"
+                },
+                "errorMessage": {
+                    "description": "Error message in result.",
+                    "type": "string"
+                },
+                "iterationId": {
+                    "description": "Iteration ID of test action result.",
+                    "type": "number"
+                },
+                "outcome": {
+                    "description": "Test outcome of result.",
+                    "type": "string"
+                },
+                "sharedStepModel": {
+                    "$ref": "#/definitions/SharedStepModel",
+                    "description": "Reference to shared step workitem."
+                },
+                "startedDate": {
+                    "description": "Time when execution started(UTC).",
+                    "format": "date-time",
+                    "type": "string"
+                },
+                "stepIdentifier": {
+                    "description": "This is step Id of test case. For shared step, it is step Id of shared step in test case workitem; step Id in shared step. Example: TestCase workitem has two steps: 1) Normal step with Id = 1 2) Shared Step with Id = 2. Inside shared step: a) Normal Step with Id = 1 Value for StepIdentifier for First step: \"1\" Second step: \"2;1\"",
+                    "type": "string"
+                },
+                "url": {
+                    "description": "Url of test action result. Deprecated in hosted environment.",
+                    "type": "string"
+                }
+            },
+            "type": "object"
+        },
+        "TestCaseResult": {
+            "description": "Represents a test result.",
+            "properties": {
+                "afnStripId": {
+                    "description": "Test attachment ID of action recording.",
+                    "type": "number"
+                },
+                "area": {
+                    "$ref": "#/definitions/ShallowReference",
+                    "description": "Reference to area path of test."
+                },
+                "associatedBugs": {
+                    "description": "Reference to bugs linked to test result.",
+                    "items": {
+                        "$ref": "#/definitions/ShallowReference"
+                    },
+                    "type": "array"
+                },
+                "automatedTestId": {
+                    "description": "ID representing test method in a dll.",
+                    "type": "string"
+                },
+                "automatedTestName": {
+                    "description": "Fully qualified name of test executed.",
+                    "type": "string"
+                },
+                "automatedTestStorage": {
+                    "description": "Container to which test belongs.",
+                    "type": "string"
+                },
+                "automatedTestType": {
+                    "description": "Type of automated test.",
+                    "type": "string"
+                },
+                "automatedTestTypeId": {
+                    "description": "TypeId of automated test.",
+                    "type": "string"
+                },
+                "build": {
+                    "$ref": "#/definitions/ShallowReference",
+                    "description": "Shallow reference to build associated with test result."
+                },
+                "buildReference": {
+                    "$ref": "#/definitions/BuildReference",
+                    "description": "Reference to build associated with test result."
+                },
+                "comment": {
+                    "description": "Comment in a test result with maxSize= 1000 chars.",
+                    "type": "string"
+                },
+                "completedDate": {
+                    "description": "Time when test execution completed(UTC). Completed date should be greater than StartedDate.",
+                    "format": "date-time",
+                    "type": "string"
+                },
+                "computerName": {
+                    "description": "Machine name where test executed.",
+                    "type": "string"
+                },
+                "configuration": {
+                    "$ref": "#/definitions/ShallowReference",
+                    "description": "Reference to test configuration. Type ShallowReference."
+                },
+                "createdDate": {
+                    "description": "Timestamp when test result created(UTC).",
+                    "format": "date-time",
+                    "type": "string"
+                },
+                "customFields": {
+                    "description": "Additional properties of test result.",
+                    "items": {
+                        "$ref": "#/definitions/CustomTestField"
+                    },
+                    "type": "array"
+                },
+                "durationInMs": {
+                    "description": "Duration of test execution in milliseconds. If not provided value will be set as CompletedDate - StartedDate",
+                    "type": "number"
+                },
+                "errorMessage": {
+                    "description": "Error message in test execution.",
+                    "type": "string"
+                },
+                "failingSince": {
+                    "$ref": "#/definitions/FailingSince",
+                    "description": "Information when test results started failing."
+                },
+                "failureType": {
+                    "description": "Failure type of test result. Valid Value= (Known Issue, New Issue, Regression, Unknown, None)",
+                    "type": "string"
+                },
+                "id": {
+                    "description": "ID of a test result.",
+                    "type": "number"
+                },
+                "iterationDetails": {
+                    "description": "Test result details of test iterations used only for Manual Testing.",
+                    "items": {
+                        "$ref": "#/definitions/TestIterationDetailsModel"
+                    },
+                    "type": "array"
+                },
+                "lastUpdatedBy": {
+                    "$ref": "#/definitions/IdentityRef",
+                    "description": "Reference to identity last updated test result."
+                },
+                "lastUpdatedDate": {
+                    "description": "Last updated datetime of test result(UTC).",
+                    "format": "date-time",
+                    "type": "string"
+                },
+                "outcome": {
+                    "description": "Test outcome of test result. Valid values = (Unspecified, None, Passed, Failed, Inconclusive, Timeout, Aborted, Blocked, NotExecuted, Warning, Error, NotApplicable, Paused, InProgress, NotImpacted)",
+                    "type": "string"
+                },
+                "owner": {
+                    "$ref": "#/definitions/IdentityRef",
+                    "description": "Reference to test owner."
+                },
+                "priority": {
+                    "description": "Priority of test executed.",
+                    "type": "number"
+                },
+                "project": {
+                    "$ref": "#/definitions/ShallowReference",
+                    "description": "Reference to team project."
+                },
+                "release": {
+                    "$ref": "#/definitions/ShallowReference",
+                    "description": "Shallow reference to release associated with test result."
+                },
+                "releaseReference": {
+                    "$ref": "#/definitions/ReleaseReference",
+                    "description": "Reference to release associated with test result."
+                },
+                "resetCount": {
+                    "description": "ResetCount.",
+                    "type": "number"
+                },
+                "resolutionState": {
+                    "description": "Resolution state of test result.",
+                    "type": "string"
+                },
+                "resolutionStateId": {
+                    "description": "ID of resolution state.",
+                    "type": "number"
+                },
+                "resultGroupType": {
+                    "description": "Hierarchy type of the result, default value of None means its leaf node.",
+                    "enum": [
+                        0,
+                        1,
+                        2,
+                        3,
+                        4
+                    ],
+                    "type": "number"
+                },
+                "revision": {
+                    "description": "Revision number of test result.",
+                    "type": "number"
+                },
+                "runBy": {
+                    "$ref": "#/definitions/IdentityRef",
+                    "description": "Reference to identity executed the test."
+                },
+                "stackTrace": {
+                    "description": "Stacktrace with maxSize= 1000 chars.",
+                    "type": "string"
+                },
+                "startedDate": {
+                    "description": "Time when test execution started(UTC).",
+                    "format": "date-time",
+                    "type": "string"
+                },
+                "state": {
+                    "description": "State of test result. Type TestRunState.",
+                    "type": "string"
+                },
+                "subResults": {
+                    "description": "List of sub results inside a test result, if ResultGroupType is not None, it holds corresponding type sub results.",
+                    "items": {
+                        "$ref": "#/definitions/TestSubResult"
+                    },
+                    "type": "array"
+                },
+                "testCase": {
+                    "$ref": "#/definitions/ShallowReference",
+                    "description": "Reference to the test executed."
+                },
+                "testCaseReferenceId": {
+                    "description": "Reference ID of test used by test result. Type TestResultMetaData",
+                    "type": "number"
+                },
+                "testCaseRevision": {
+                    "description": "TestCaseRevision Number.",
+                    "type": "number"
+                },
+                "testCaseTitle": {
+                    "description": "Name of test.",
+                    "type": "string"
+                },
+                "testPlan": {
+                    "$ref": "#/definitions/ShallowReference",
+                    "description": "Reference to test plan test case workitem is part of."
+                },
+                "testPoint": {
+                    "$ref": "#/definitions/ShallowReference",
+                    "description": "Reference to the test point executed."
+                },
+                "testRun": {
+                    "$ref": "#/definitions/ShallowReference",
+                    "description": "Reference to test run."
+                },
+                "testSuite": {
+                    "$ref": "#/definitions/ShallowReference",
+                    "description": "Reference to test suite test case workitem is part of."
+                },
+                "url": {
+                    "description": "Url of test result.",
+                    "type": "string"
+                }
+            },
+            "type": "object"
+        },
+        "TestCaseResultAttachmentModel": {
+            "description": "Test attachment information in a test iteration.",
+            "properties": {
+                "actionPath": {
+                    "description": "Path identifier test step in test case workitem.",
+                    "type": "string"
+                },
+                "id": {
+                    "description": "Attachment ID.",
+                    "type": "number"
+                },
+                "iterationId": {
+                    "description": "Iteration ID.",
+                    "type": "number"
+                },
+                "name": {
+                    "description": "Name of attachment.",
+                    "type": "string"
+                },
+                "size": {
+                    "description": "Attachment size.",
+                    "type": "number"
+                },
+                "url": {
+                    "description": "Url to attachment.",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "id",
+                "iterationId",
+                "name",
+                "size",
+                "url"
+            ],
+            "type": "object"
+        },
+        "TestCaseResultIdentifier": {
+            "description": "Reference to a test result.",
+            "properties": {
+                "testResultId": {
+                    "description": "Test result ID.",
+                    "type": "number"
+                },
+                "testRunId": {
+                    "description": "Test run ID.",
+                    "type": "number"
+                }
+            },
+            "required": [
+                "testResultId",
+                "testRunId"
+            ],
+            "type": "object"
+        },
+        "TestIterationDetailsModel": {
+            "description": "Represents a test iteration result.",
+            "properties": {
+                "actionResults": {
+                    "description": "Test step results in an iteration.",
+                    "items": {
+                        "$ref": "#/definitions/TestActionResultModel"
+                    },
+                    "type": "array"
+                },
+                "attachments": {
+                    "description": "Reference to attachments in test iteration result.",
+                    "items": {
+                        "$ref": "#/definitions/TestCaseResultAttachmentModel"
+                    },
+                    "type": "array"
+                },
+                "comment": {
+                    "description": "Comment in test iteration result.",
+                    "type": "string"
+                },
+                "completedDate": {
+                    "description": "Time when execution completed(UTC).",
+                    "format": "date-time",
+                    "type": "string"
+                },
+                "durationInMs": {
+                    "description": "Duration of execution.",
+                    "type": "number"
+                },
+                "errorMessage": {
+                    "description": "Error message in test iteration result execution.",
+                    "type": "string"
+                },
+                "id": {
+                    "description": "ID of test iteration result.",
+                    "type": "number"
+                },
+                "outcome": {
+                    "description": "Test outcome if test iteration result.",
+                    "type": "string"
+                },
+                "parameters": {
+                    "description": "Test parameters in an iteration.",
+                    "items": {
+                        "$ref": "#/definitions/TestResultParameterModel"
+                    },
+                    "type": "array"
+                },
+                "startedDate": {
+                    "description": "Time when execution started(UTC).",
+                    "format": "date-time",
+                    "type": "string"
+                },
+                "url": {
+                    "description": "Url to test iteration result.",
+                    "type": "string"
+                }
+            },
+            "type": "object"
+        },
+        "TestResultParameterModel": {
+            "description": "Test parameter information in a test iteration.",
+            "properties": {
+                "actionPath": {
+                    "description": "Test step path where parameter is referenced.",
+                    "type": "string"
+                },
+                "iterationId": {
+                    "description": "Iteration ID.",
+                    "type": "number"
+                },
+                "parameterName": {
+                    "description": "Name of parameter.",
+                    "type": "string"
+                },
+                "stepIdentifier": {
+                    "description": "This is step Id of test case. For shared step, it is step Id of shared step in test case workitem; step Id in shared step. Example: TestCase workitem has two steps: 1) Normal step with Id = 1 2) Shared Step with Id = 2. Inside shared step: a) Normal Step with Id = 1 Value for StepIdentifier for First step: \"1\" Second step: \"2;1\"",
+                    "type": "string"
+                },
+                "url": {
+                    "description": "Url of test parameter. Deprecated in hosted environment.",
+                    "type": "string"
+                },
+                "value": {
+                    "description": "Value of parameter.",
+                    "type": "string"
+                }
+            },
+            "type": "object"
+        },
+        "TestSubResult": {
+            "description": "Represents a sub result of a test result.",
+            "properties": {
+                "comment": {
+                    "description": "Comment in sub result.",
+                    "type": "string"
+                },
+                "completedDate": {
+                    "description": "Time when test execution completed(UTC).",
+                    "format": "date-time",
+                    "type": "string"
+                },
+                "computerName": {
+                    "description": "Machine where test executed.",
+                    "type": "string"
+                },
+                "configuration": {
+                    "$ref": "#/definitions/ShallowReference",
+                    "description": "Reference to test configuration."
+                },
+                "customFields": {
+                    "description": "Additional properties of sub result.",
+                    "items": {
+                        "$ref": "#/definitions/CustomTestField"
+                    },
+                    "type": "array"
+                },
+                "displayName": {
+                    "description": "Name of sub result.",
+                    "type": "string"
+                },
+                "durationInMs": {
+                    "description": "Duration of test execution.",
+                    "type": "number"
+                },
+                "errorMessage": {
+                    "description": "Error message in sub result.",
+                    "type": "string"
+                },
+                "id": {
+                    "description": "ID of sub result.",
+                    "type": "number"
+                },
+                "lastUpdatedDate": {
+                    "description": "Time when result last updated(UTC).",
+                    "format": "date-time",
+                    "type": "string"
+                },
+                "outcome": {
+                    "description": "Outcome of sub result.",
+                    "type": "string"
+                },
+                "parentId": {
+                    "description": "Immediate parent ID of sub result.",
+                    "type": "number"
+                },
+                "resultGroupType": {
+                    "description": "Hierarchy type of the result, default value of None means its leaf node.",
+                    "enum": [
+                        0,
+                        1,
+                        2,
+                        3,
+                        4
+                    ],
+                    "type": "number"
+                },
+                "sequenceId": {
+                    "description": "Index number of sub result.",
+                    "type": "number"
+                },
+                "stackTrace": {
+                    "description": "Stacktrace.",
+                    "type": "string"
+                },
+                "startedDate": {
+                    "description": "Time when test execution started(UTC).",
+                    "format": "date-time",
+                    "type": "string"
+                },
+                "subResults": {
+                    "description": "List of sub results inside a sub result, if ResultGroupType is not None, it holds corresponding type sub results.",
+                    "items": {
+                        "$ref": "#/definitions/TestSubResult"
+                    },
+                    "type": "array"
+                },
+                "testResult": {
+                    "$ref": "#/definitions/TestCaseResultIdentifier",
+                    "description": "Reference to test result."
+                },
+                "url": {
+                    "description": "Url of sub result.",
+                    "type": "string"
+                }
+            },
+            "type": "object"
+        }
+    },
+    "properties": {
+        "azureConfigurationId": {
+            "type": "string"
+        },
+        "testResults": {
+            "items": {
+                "$ref": "#/definitions/TestCaseResult"
+            },
+            "type": "array"
+        }
+    },
+    "required": [
+        "azureConfigurationId",
+        "testResults"
+    ],
+    "type": "object"
+}
+

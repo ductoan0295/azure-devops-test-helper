@@ -3,6 +3,7 @@ dist
 .eslintignore
 .gitignore
 .prettierignore
+.npmignore
 README.md
 LICENSE-MIT
 *.ps1
