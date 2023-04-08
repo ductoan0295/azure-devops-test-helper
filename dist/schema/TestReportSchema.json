@@ -46,10 +46,6 @@
                     "description": "Field value."
                 }
             },
-            "required": [
-                "fieldName",
-                "value"
-            ],
             "type": "object"
         },
         "FailingSince": {
@@ -69,9 +65,6 @@
                     "description": "Release reference since failing."
                 }
             },
-            "required": [
-                "date"
-            ],
             "type": "object"
         },
         "IdentityRef": {
@@ -176,6 +169,26 @@
             },
             "type": "object"
         },
+        "Screenshot": {
+            "properties": {
+                "actionPath": {
+                    "type": "string"
+                },
+                "base64encodedContent": {
+                    "type": "string"
+                },
+                "iterationId": {
+                    "type": "number"
+                },
+                "testCaseId": {
+                    "type": "string"
+                },
+                "testCaseResultId": {
+                    "type": "number"
+                }
+            },
+            "type": "object"
+        },
         "ShallowReference": {
             "description": "An abstracted reference to some other resource. This class is used to provide the build data contracts with a uniform way to reference other resources in a way that provides easy traversal through links.",
             "properties": {
@@ -206,10 +219,6 @@
                     "type": "number"
                 }
             },
-            "required": [
-                "id",
-                "revision"
-            ],
             "type": "object"
         },
         "TestActionResultModel": {
@@ -517,13 +526,6 @@
                     "type": "string"
                 }
             },
-            "required": [
-                "id",
-                "iterationId",
-                "name",
-                "size",
-                "url"
-            ],
             "type": "object"
         },
         "TestCaseResultIdentifier": {
@@ -538,10 +540,6 @@
                     "type": "number"
                 }
             },
-            "required": [
-                "testResultId",
-                "testRunId"
-            ],
             "type": "object"
         },
         "TestIterationDetailsModel": {
@@ -738,6 +736,12 @@
         "azureConfigurationId": {
             "type": "string"
         },
+        "screenshots": {
+            "additionalProperties": {
+                "$ref": "#/definitions/Screenshot"
+            },
+            "type": "object"
+        },
         "testResults": {
             "items": {
                 "$ref": "#/definitions/TestCaseResult"
@@ -745,10 +749,6 @@
             "type": "array"
         }
     },
-    "required": [
-        "azureConfigurationId",
-        "testResults"
-    ],
     "type": "object"
 }
 

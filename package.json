@@ -39,7 +39,9 @@
     "lint": "eslint ./src",
     "prettier:write": "prettier --write ./**",
     "detect-dup-code": "jscpd ./src/",
-    "gen-schema": "typescript-json-schema tsconfig-esm.json \"TestReport\" --out \"./dist/schema/TestReportSchema.json\" --required true"
+    "gen-schema": "npm run gen-testreport-schema && npm run gen-config-schema",
+    "gen-testreport-schema": "typescript-json-schema tsconfig-esm.json \"TestReport\" --out \"./dist/schema/TestReportSchema.json\"",
+    "gen-config-schema": "typescript-json-schema tsconfig-esm.json \"AzureResultImporterConfig\" --out \"./dist/schema/AzureResultImporterConfigSchema.json\" --required true"
   },
   "dependencies": {
     "ajv": "^8.12.0",

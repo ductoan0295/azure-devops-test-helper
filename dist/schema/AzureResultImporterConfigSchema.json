@@ -1,0 +1,33 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "properties": {
+        "organizationUrl": {
+            "type": "string"
+        },
+        "pat": {
+            "type": "string"
+        },
+        "planId": {
+            "type": "number"
+        },
+        "project": {
+            "type": "string"
+        },
+        "runName": {
+            "type": "string"
+        },
+        "suiteId": {
+            "type": "number"
+        }
+    },
+    "required": [
+        "organizationUrl",
+        "pat",
+        "planId",
+        "project",
+        "runName",
+        "suiteId"
+    ],
+    "type": "object"
+}
+
