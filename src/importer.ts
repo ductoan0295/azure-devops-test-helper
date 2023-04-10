@@ -194,7 +194,18 @@ class AzureDevopsResultImporter {
       config.suiteId
     );
 
-    const testPointIds: number[] = testPoints.map((testPoint: TestPoint) => testPoint.id);
+    const automatedTestPoints: TestPoint[] = testPoints.filter((points: TestPoint) =>
+      points.workItemProperties.find((workItem: unknown) => {
+        if (workItem instanceof Object) {
+          const workItemObject = Object.entries(workItem).find(([key]) => key === "workItem");
+          const key = String(workItemObject?.[1].key);
+          const value = String(workItemObject?.[1].value);
+          return key.includes("AutomationStatus") && value === (config.automatedStatus ?? "Planned");
+        }
+        return false;
+      })
+    );
+    const testPointIds: number[] = automatedTestPoints.map((testPoint: TestPoint) => testPoint.id);
 
     const testRun = await azureClient.createTestRun(
       {
@@ -205,7 +216,11 @@ class AzureDevopsResultImporter {
           id: `${config.planId}`,
           name: config.runName,
         },
-        automated: false,
+        automated: true,
+        build: {
+          id: String(config.buildId),
+        },
+        comment: config.comment,
       },
       config.project
     );
@@ -237,7 +252,10 @@ class AzureDevopsResultImporter {
       if (screenshot.testCaseResultId) {
         const attachmentReference: TestAttachmentReference =
           await azureClient.createTestIterationResultAttachment(
-            { fileName: `CaseID-${screenshot.testCaseId}.png`, stream: screenshot.base64encodedContent },
+            {
+              fileName: `CaseID-${screenshot.testCaseId}-runid-${testRunId}.png`,
+              stream: screenshot.base64encodedContent,
+            },
             config.project,
             testRunId,
             screenshot.testCaseResultId,

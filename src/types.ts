@@ -8,6 +8,9 @@ export interface AzureResultImporterConfig {
   planId: number;
   suiteId: number;
   runName: string;
+  automatedStatus?: string;
+  buildId?: number;
+  comment?: string;
 }
 
 export interface AzureConfigurationCapability {
