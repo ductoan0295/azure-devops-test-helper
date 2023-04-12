@@ -737,10 +737,10 @@
             "type": "string"
         },
         "screenshots": {
-            "additionalProperties": {
+            "items": {
                 "$ref": "#/definitions/Screenshot"
             },
-            "type": "object"
+            "type": "array"
         },
         "testResults": {
             "items": {

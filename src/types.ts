@@ -29,5 +29,5 @@ export interface Screenshot {
 export interface TestReport {
   azureConfigurationId: string;
   testResults: TestCaseResult[];
-  screenshots?: { [testcaseId: string]: Screenshot };
+  screenshots?: Screenshot[];
 }

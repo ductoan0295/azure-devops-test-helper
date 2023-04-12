@@ -14,6 +14,7 @@ import url from "node:url";
 import fs from "node:fs";
 import Ajv, { Schema } from "ajv";
 import addFormats from "ajv-formats";
+import { TestIterationDetailsModel } from "azure-devops-node-api/interfaces/TestInterfaces.js";
 
 class AzureDevopsResultImporter {
   private azureTestApiClient!: ITestApi;
@@ -157,17 +158,19 @@ class AzureDevopsResultImporter {
 
         updatingResults.push({ ...createdResult, ...executedResult });
         const testCaseId = executedResult?.testCase?.id;
-        if (testCaseId) {
-          const screenshot = configMatchedReport.screenshots
-            ? configMatchedReport.screenshots[testCaseId]
-            : undefined;
-          if (screenshot) {
+
+        configMatchedReport.screenshots?.forEach((screenshot: Screenshot) => {
+          if (
+            screenshot.testCaseId === testCaseId &&
+            executedResult?.iterationDetails?.find(
+              (iteration: TestIterationDetailsModel) => screenshot.iterationId === iteration.id
+            )
+          )
             screenshots.push({
               ...screenshot,
-              ...{ testCaseId: testCaseId, testCaseResultId: createdResult.id },
+              ...{ testCaseResultId: createdResult.id },
             });
-          }
-        }
+        });
       } else {
         updatingResults.push(createdResult);
       }
