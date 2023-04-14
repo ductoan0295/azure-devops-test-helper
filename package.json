@@ -1,6 +1,6 @@
 {
   "name": "azure-devops-test-helper",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Import JSON result with attachments into Azure Test Plan",
   "author": "Duc Toan <ductoan0295@gmail.com>",
   "homepage": "https://github.com/ductoan0295/azure-devops-test-helper",
@@ -46,6 +46,7 @@
   "dependencies": {
     "ajv": "^8.12.0",
     "ajv-formats": "^2.1.1",
+    "axios": "^1.3.5",
     "azure-devops-node-api": "^12.0.0"
   },
   "devDependencies": {

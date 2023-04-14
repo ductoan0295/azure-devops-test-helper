@@ -1,23 +1,21 @@
-import { AzureResultImporterConfig, Screenshot, TestReport } from "./types.js";
+import { AzureResultImporterConfig, TestReport } from "./types.js";
 import { ITestApi } from "azure-devops-node-api/TestApi.js";
-import * as azureNodeApi from "azure-devops-node-api";
-import { AzureTestRunStatus, AzureTestResultOutcome } from "./constants.js";
-import {
-  RunUpdateModel,
-  TestAttachmentReference,
-  TestCaseResult,
-  TestPoint,
-  TestRun,
-} from "azure-devops-node-api/interfaces/TestInterfaces.js";
+import { AzureTestRunStatus } from "./constants.js";
+import { TestAttachmentReference, TestCaseResult } from "azure-devops-node-api/interfaces/TestInterfaces.js";
 import path from "node:path";
 import url from "node:url";
 import fs from "node:fs";
 import Ajv, { Schema } from "ajv";
 import addFormats from "ajv-formats";
-import { TestIterationDetailsModel } from "azure-devops-node-api/interfaces/TestInterfaces.js";
+import axios, { AxiosInstance } from "axios";
+import { UpdateTestCaseData, UpdateTestResults } from "./interfaces.js";
+import { createTestRun, setRunStatus } from "./run.js";
+import { getUpdatingTestResult, uploadScreenshots } from "./result.js";
+import { createAzureTestAPIClient } from "./client.js";
 
 class AzureDevopsResultImporter {
-  private azureTestApiClient!: ITestApi;
+  private azureTestApiClient?: ITestApi;
+  private axiosClient?: AxiosInstance;
   private ajv: Ajv;
   private testReportSchema: Schema;
   private configSchema: Schema;
@@ -76,20 +74,21 @@ class AzureDevopsResultImporter {
     );
 
     if (validFormatReports.length > 0) {
-      await this.createAzureTestAPIClient(config.pat, config.organizationUrl);
+      const azureTestApiClient = await this.getAzureTestAPIClient(config);
+      const axiosClient = await this.getAxiosClient(config);
 
       const executedConfigurationIds: number[] = validFormatReports.map((report: TestReport) =>
         Number(report.azureConfigurationId)
       );
 
-      const testRun = await this.createTestRun(this.azureTestApiClient, config, executedConfigurationIds);
+      const testRun = await createTestRun(azureTestApiClient, axiosClient, config, executedConfigurationIds);
       if (!testRun.id) {
         throw new Error("Failed to create test Run!");
       }
-      await this.setRunStatus(this.azureTestApiClient, config, testRun.id, AzureTestRunStatus.INPROGRESS);
+      await setRunStatus(azureTestApiClient, config, testRun.id, AzureTestRunStatus.INPROGRESS);
 
-      const updatingResult: UpdateTestCaseData = await this.getUpdatingTestResult(
-        this.azureTestApiClient,
+      const updatingResult: UpdateTestCaseData = await getUpdatingTestResult(
+        azureTestApiClient,
         validFormatReports,
         config.project,
         testRun.id
@@ -97,30 +96,30 @@ class AzureDevopsResultImporter {
 
       let importedTestResults: TestCaseResult[] = [];
       try {
-        importedTestResults = await this.azureTestApiClient.updateTestResults(
+        importedTestResults = await azureTestApiClient.updateTestResults(
           updatingResult.testCaseResults,
           config.project,
           testRun.id
         );
       } catch (error: unknown) {
-        await this.setRunStatus(this.azureTestApiClient, config, testRun.id, AzureTestRunStatus.ABORTED);
+        await setRunStatus(azureTestApiClient, config, testRun.id, AzureTestRunStatus.ABORTED);
         throw new Error(
           "Failed to import result into the created Test Run! with the following error: \n" + error
         );
       }
 
-      await this.setRunStatus(this.azureTestApiClient, config, testRun.id, AzureTestRunStatus.COMPLETED);
+      await setRunStatus(azureTestApiClient, config, testRun.id, AzureTestRunStatus.COMPLETED);
 
       let uploadedScreenshot: TestAttachmentReference[] = [];
       try {
-        uploadedScreenshot = await this.uploadScreenshots(
-          this.azureTestApiClient,
-          config,
+        uploadedScreenshot = await uploadScreenshots(
+          azureTestApiClient,
+          config.project,
           updatingResult.screenshots,
           testRun.id
         );
       } catch (error: unknown) {
-        await this.setRunStatus(this.azureTestApiClient, config, testRun.id, AzureTestRunStatus.ABORTED);
+        await setRunStatus(azureTestApiClient, config, testRun.id, AzureTestRunStatus.ABORTED);
         throw new Error(
           "Failed to upload screenshot(s) into the created Test Run! with the following error: \n" + error
         );
@@ -130,156 +129,27 @@ class AzureDevopsResultImporter {
     return { testCaseResults: [], attachments: [] };
   }
 
-  private async getUpdatingTestResult(
-    azureClient: ITestApi,
-    testReports: TestReport[],
-    project: string,
-    testRunId: number
-  ): Promise<UpdateTestCaseData> {
-    let createdTestResults: TestCaseResult[] = await azureClient.getTestResults(project, testRunId);
-    createdTestResults = createdTestResults.map((result: TestCaseResult) => ({
-      ...result,
-      ...{ outcome: AzureTestResultOutcome.NotExecuted, state: AzureTestRunStatus.COMPLETED },
-    }));
-
-    const updatingResults: TestCaseResult[] = [];
-    const screenshots: Screenshot[] = [];
-
-    createdTestResults.forEach((createdResult: TestCaseResult) => {
-      const configMatchedReport = testReports.find(
-        (report: TestReport) =>
-          createdResult.configuration?.id && createdResult.configuration?.id === report.azureConfigurationId
-      );
-
-      if (configMatchedReport) {
-        const executedResult = configMatchedReport.testResults.find(
-          (result: TestCaseResult) => result.testCase?.id && result.testCase.id === createdResult.testCase?.id
-        );
-
-        updatingResults.push({ ...createdResult, ...executedResult });
-        const testCaseId = executedResult?.testCase?.id;
-
-        configMatchedReport.screenshots?.forEach((screenshot: Screenshot) => {
-          if (
-            screenshot.testCaseId === testCaseId &&
-            executedResult?.iterationDetails?.find(
-              (iteration: TestIterationDetailsModel) => screenshot.iterationId === iteration.id
-            )
-          )
-            screenshots.push({
-              ...screenshot,
-              ...{ testCaseResultId: createdResult.id },
-            });
-        });
-      } else {
-        updatingResults.push(createdResult);
-      }
-    });
-    return { testCaseResults: updatingResults, screenshots: screenshots };
-  }
-
-  private async createAzureTestAPIClient(pat: string, organizationUrl: string): Promise<void> {
+  private async getAzureTestAPIClient(config: AzureResultImporterConfig): Promise<ITestApi> {
     if (!this.azureTestApiClient) {
-      const authHandler = azureNodeApi.getPersonalAccessTokenHandler(pat);
-      const connection = new azureNodeApi.WebApi(organizationUrl, authHandler);
-      this.azureTestApiClient = await connection.getTestApi();
+      this.azureTestApiClient = await createAzureTestAPIClient(config.pat, config.organizationUrl);
     }
+    return this.azureTestApiClient;
   }
 
-  private async createTestRun(
-    azureClient: ITestApi,
-    config: AzureResultImporterConfig,
-    configurationIds: number[]
-  ): Promise<TestRun> {
-    const testPoints: TestPoint[] = await azureClient.getPoints(
-      config.project,
-      config.planId,
-      config.suiteId
-    );
-
-    const automatedTestPoints: TestPoint[] = testPoints.filter((points: TestPoint) =>
-      points.workItemProperties.find((workItem: unknown) => {
-        if (workItem instanceof Object) {
-          const workItemObject = Object.entries(workItem).find(([key]) => key === "workItem");
-          const key = String(workItemObject?.[1].key);
-          const value = String(workItemObject?.[1].value);
-          return key.includes("AutomationStatus") && value === (config.automatedStatus ?? "Planned");
-        }
-        return false;
-      })
-    );
-    const testPointIds: number[] = automatedTestPoints.map((testPoint: TestPoint) => testPoint.id);
-
-    const testRun = await azureClient.createTestRun(
-      {
-        name: config.runName,
-        pointIds: testPointIds.filter((id: number) => id),
-        configurationIds: configurationIds,
-        plan: {
-          id: `${config.planId}`,
-          name: config.runName,
+  private async getAxiosClient(config: AzureResultImporterConfig): Promise<AxiosInstance> {
+    if (!this.axiosClient) {
+      this.axiosClient = axios.create({
+        headers: {
+          Authorization: "Basic " + Buffer.from(":" + config.pat).toString("base64"),
         },
-        automated: true,
-        build: {
-          id: String(config.buildId),
+        params: {
+          Authorization: "Basic " + config.pat,
         },
-        comment: config.comment,
-      },
-      config.project
-    );
-
-    return testRun;
-  }
-
-  private async setRunStatus(
-    azureClient: ITestApi,
-    config: AzureResultImporterConfig,
-    testRunId: number,
-    status: AzureTestRunStatus
-  ): Promise<TestRun> {
-    const inProgressRunModel: RunUpdateModel = {
-      state: status,
-    };
-
-    return azureClient.updateTestRun(inProgressRunModel, config.project, testRunId);
-  }
-
-  private async uploadScreenshots(
-    azureClient: ITestApi,
-    config: AzureResultImporterConfig,
-    screenshots: Screenshot[],
-    testRunId: number
-  ): Promise<TestAttachmentReference[]> {
-    const uploadedTestAttachmentReferences: TestAttachmentReference[] = [];
-    for (const screenshot of screenshots) {
-      if (screenshot.testCaseResultId) {
-        const attachmentReference: TestAttachmentReference =
-          await azureClient.createTestIterationResultAttachment(
-            {
-              fileName: `CaseID-${screenshot.testCaseId}-runid-${testRunId}.png`,
-              stream: screenshot.base64encodedContent,
-            },
-            config.project,
-            testRunId,
-            screenshot.testCaseResultId,
-            screenshot.iterationId,
-            screenshot.actionPath
-          );
-        uploadedTestAttachmentReferences.push(attachmentReference);
-      }
+        baseURL: `${config.organizationUrl}/${config.project}/_apis`,
+      });
     }
-    return uploadedTestAttachmentReferences;
+    return this.axiosClient;
   }
-}
-
-interface UpdateTestCaseData {
-  testCaseResults: TestCaseResult[];
-  screenshots: Screenshot[];
-}
-
-interface UpdateTestResults {
-  testCaseResults: TestCaseResult[];
-  attachments: TestAttachmentReference[];
 }
 
 export default new AzureDevopsResultImporter();
