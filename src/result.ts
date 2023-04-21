@@ -1,5 +1,6 @@
 import { ITestApi } from "azure-devops-node-api/TestApi";
 import {
+  TestActionResultModel,
   TestAttachmentReference,
   TestCaseResult,
   TestIterationDetailsModel,
@@ -7,12 +8,14 @@ import {
 import { AzureTestResultOutcome, AzureTestRunStatus } from "./constants.js";
 import { UpdateTestCaseData } from "./interfaces.js";
 import { TestReport, Screenshot } from "./types.js";
+import { getStepStartingValueByTestCaseId } from "./case.js";
 
 export async function getUpdatingTestResult(
   azureClient: ITestApi,
   testReports: TestReport[],
   project: string,
-  testRunId: number
+  testRunId: number,
+  testCases: unknown[]
 ): Promise<UpdateTestCaseData> {
   let createdTestResults: TestCaseResult[] = await azureClient.getTestResults(project, testRunId);
   createdTestResults = createdTestResults.map((result: TestCaseResult) => ({
@@ -34,9 +37,40 @@ export async function getUpdatingTestResult(
         (result: TestCaseResult) => result.testCase?.id && result.testCase.id === createdResult.testCase?.id
       );
 
-      updatingResults.push({ ...createdResult, ...executedResult });
-      const testCaseId = executedResult?.testCase?.id;
+      const stepStartingValue = getStepStartingValueByTestCaseId(testCases, createdResult.testCase?.id);
 
+      if (
+        stepStartingValue &&
+        stepStartingValue === executedResult?.iterationDetails?.[0].actionResults?.[0].iterationId
+      ) {
+        const resetActionPathResult = setActionPath(stepStartingValue, executedResult);
+        updatingResults.push({ ...createdResult, ...resetActionPathResult });
+
+        configMatchedReport.screenshots.forEach((screenshot: Screenshot) => {
+          if (screenshot.testCaseId && screenshot.testCaseId === createdResult.testCase?.id) {
+            const iterationIndex = executedResult.iterationDetails?.findIndex(
+              (iterationDetail: TestIterationDetailsModel) => iterationDetail.id === screenshot.iterationId
+            );
+
+            if (iterationIndex !== undefined && executedResult.iterationDetails) {
+              const matchedIterationDetails = executedResult.iterationDetails[iterationIndex];
+              const matchedActionResultIndex = matchedIterationDetails.actionResults?.findIndex(
+                (actionResult: TestActionResultModel) => actionResult.actionPath === screenshot.actionPath
+              );
+
+              if (matchedActionResultIndex !== undefined)
+                screenshot.actionPath =
+                  resetActionPathResult.iterationDetails?.[iterationIndex].actionResults?.[
+                    matchedActionResultIndex
+                  ].actionPath ?? "";
+            }
+          }
+        });
+      } else {
+        updatingResults.push({ ...createdResult, ...executedResult });
+      }
+
+      const testCaseId = executedResult?.testCase?.id;
       configMatchedReport.screenshots?.forEach((screenshot: Screenshot) => {
         if (
           screenshot.testCaseId === testCaseId &&
@@ -81,4 +115,32 @@ export async function uploadScreenshots(
     }
   }
   return uploadedTestAttachmentReferences;
+}
+
+function setActionPath(startingIndex: number, testCaseResult: TestCaseResult): TestCaseResult {
+  const iterationDetails = testCaseResult.iterationDetails?.map(
+    (iterationDetail: TestIterationDetailsModel) => {
+      let currentId = startingIndex;
+      return {
+        ...iterationDetail,
+        ...{
+          actionResults: iterationDetail.actionResults?.map((actionResult: TestActionResultModel) => {
+            const actionPathChangedActionResult = {
+              ...actionResult,
+              ...{ stepIdentifier: String(currentId), actionPath: convertIdToAzureActionPathId(currentId) },
+            };
+            currentId++;
+            return actionPathChangedActionResult;
+          }),
+        },
+      };
+    }
+  );
+  const result: TestCaseResult = { ...testCaseResult, ...{ iterationDetails: iterationDetails } };
+  return result;
+}
+
+function convertIdToAzureActionPathId(id: number): string {
+  const actionPathIdLength = 8;
+  return id.toString(16).toUpperCase().padStart(actionPathIdLength, "0");
 }

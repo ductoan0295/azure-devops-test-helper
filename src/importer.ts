@@ -12,6 +12,7 @@ import { UpdateTestCaseData, UpdateTestResults } from "./interfaces.js";
 import { createTestRun, setRunStatus } from "./run.js";
 import { getUpdatingTestResult, uploadScreenshots } from "./result.js";
 import { createAzureTestAPIClient } from "./client.js";
+import { getTestCasesByPlanID } from "./plan.js";
 
 class AzureDevopsResultImporter {
   private azureTestApiClient?: ITestApi;
@@ -74,14 +75,16 @@ class AzureDevopsResultImporter {
     );
 
     if (validFormatReports.length > 0) {
+      const configurationMergedReports: TestReport[] = await this.mergeReportByConfigId(validFormatReports);
       const azureTestApiClient = await this.getAzureTestAPIClient(config);
       const axiosClient = await this.getAxiosClient(config);
 
-      const executedConfigurationIds: number[] = validFormatReports.map((report: TestReport) =>
+      const executedConfigurationIds: number[] = configurationMergedReports.map((report: TestReport) =>
         Number(report.azureConfigurationId)
       );
 
-      const testRun = await createTestRun(azureTestApiClient, axiosClient, config, executedConfigurationIds);
+      const testCases = await getTestCasesByPlanID(axiosClient, config.planId, config.suiteId);
+      const testRun = await createTestRun(azureTestApiClient, testCases, config, executedConfigurationIds);
       if (!testRun.id) {
         throw new Error("Failed to create test Run!");
       }
@@ -89,9 +92,10 @@ class AzureDevopsResultImporter {
 
       const updatingResult: UpdateTestCaseData = await getUpdatingTestResult(
         azureTestApiClient,
-        validFormatReports,
+        configurationMergedReports,
         config.project,
-        testRun.id
+        testRun.id,
+        testCases
       );
 
       let importedTestResults: TestCaseResult[] = [];
@@ -149,6 +153,24 @@ class AzureDevopsResultImporter {
       });
     }
     return this.axiosClient;
+  }
+
+  private async mergeReportByConfigId(reports: TestReport[]): Promise<TestReport[]> {
+    const mergedReports: TestReport[] = [];
+    reports.forEach((report: TestReport) => {
+      if (report.azureConfigurationId) {
+        const mergedReport = mergedReports.find(
+          (mergedReport: TestReport) => mergedReport.azureConfigurationId === report.azureConfigurationId
+        );
+        if (mergedReport) {
+          mergedReport.testResults.push(...report.testResults);
+          mergedReport.screenshots.push(...report.screenshots);
+        } else {
+          mergedReports.push(report);
+        }
+      }
+    });
+    return mergedReports;
   }
 }
 
