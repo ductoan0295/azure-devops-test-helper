@@ -11,6 +11,7 @@ export interface AzureResultImporterConfig {
   automatedStatus?: string;
   buildId?: number;
   comment?: string;
+  override?: boolean;
 }
 
 export interface AzureConfigurationCapability {

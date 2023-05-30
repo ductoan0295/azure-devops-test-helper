@@ -23,6 +23,18 @@ export function getAutomatedTestPointIds(testCases: unknown[], automatedStatus: 
   return result;
 }
 
+export function filterExecutedTestCase(testCases: unknown[], executedTestCaseIds: string[]): unknown[] {
+  const result: unknown[] = testCases.filter((testCase) => {
+    if (testCase && typeof testCase === "object") {
+      const workItem = Object.entries(testCase).find((entry) => entry[0] === "workItem")?.[1];
+      const workItemId = workItem?.id;
+      if (workItemId && executedTestCaseIds.includes(String(workItemId))) return true;
+      return false;
+    }
+  });
+  return result;
+}
+
 export function getAutomatedTestCaseIds(testCases: unknown[], automatedStatus: string): string[] {
   const result: string[] = [];
   for (const testCase of testCases) {

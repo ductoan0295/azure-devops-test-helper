@@ -13,6 +13,9 @@
         "organizationUrl": {
             "type": "string"
         },
+        "override": {
+            "type": "boolean"
+        },
         "pat": {
             "type": "string"
         },

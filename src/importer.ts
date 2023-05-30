@@ -13,6 +13,7 @@ import { createTestRun, setRunStatus } from "./run.js";
 import { getUpdatingTestResult, uploadScreenshots } from "./result.js";
 import { createAzureTestAPIClient } from "./client.js";
 import { getTestCasesByPlanID } from "./plan.js";
+import { filterExecutedTestCase } from "./case.js";
 
 class AzureDevopsResultImporter {
   private azureTestApiClient?: ITestApi;
@@ -83,7 +84,15 @@ class AzureDevopsResultImporter {
         Number(report.azureConfigurationId)
       );
 
-      const testCases = await getTestCasesByPlanID(axiosClient, config.planId, config.suiteId);
+      const executedTestCaseIds: string[] = testReports
+        .map((report: TestReport) => report.testResults)
+        .flat()
+        .filter((result) => result)
+        .map((result: TestCaseResult) => result.testCase?.id ?? "");
+      const testCasesOnPlan = await getTestCasesByPlanID(axiosClient, config.planId, config.suiteId);
+      const testCases = config.override
+        ? testCasesOnPlan
+        : filterExecutedTestCase(testCasesOnPlan, executedTestCaseIds);
       const testRun = await createTestRun(azureTestApiClient, testCases, config, executedConfigurationIds);
       if (!testRun.id) {
         throw new Error("Failed to create test Run!");
