@@ -1,4 +1,9 @@
-export function getAutomatedTestPointIds(testCases: unknown[], automatedStatus: string): number[] {
+export function getAutomatedTestPointIds(
+  testCases: unknown[],
+  automatedStatus: string,
+  executedConfigurationIds?: number[],
+  override = false
+): number[] {
   const result: number[] = [];
   for (const testCase of testCases) {
     if (testCase && typeof testCase === "object") {
@@ -13,8 +18,19 @@ export function getAutomatedTestPointIds(testCases: unknown[], automatedStatus: 
 
         pointAssignments.forEach((pointAssignment) => {
           if (pointAssignment && typeof pointAssignment === "object") {
+            const configurationId = Object.entries(pointAssignment).find(
+              (entry) => entry[0] === "configurationId"
+            )?.[1];
             const id = Object.entries(pointAssignment).find((entry) => entry[0] === "id")?.[1];
-            result.push(Number(id));
+
+            if (
+              override ||
+              (executedConfigurationIds &&
+                configurationId &&
+                executedConfigurationIds.includes(configurationId))
+            ) {
+              result.push(Number(id));
+            }
           }
         });
       }

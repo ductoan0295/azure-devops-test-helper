@@ -8,15 +8,20 @@ export async function createTestRun(
   azureClient: ITestApi,
   testCases: unknown[],
   config: AzureResultImporterConfig,
-  configurationIds: number[]
+  executedConfigurationIds: number[]
 ): Promise<TestRun> {
-  const testPointIds: number[] = getAutomatedTestPointIds(testCases, config.automatedStatus ?? "Planned");
+  const testPointIds: number[] = getAutomatedTestPointIds(
+    testCases,
+    config.automatedStatus ?? "Planned",
+    executedConfigurationIds,
+    config.override
+  );
 
   const testRun = await azureClient.createTestRun(
     {
       name: config.runName,
       pointIds: testPointIds.filter((id: number) => id),
-      configurationIds: configurationIds,
+      configurationIds: executedConfigurationIds,
       plan: {
         id: `${config.planId}`,
         name: config.runName,
