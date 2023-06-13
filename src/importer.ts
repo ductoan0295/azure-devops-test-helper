@@ -11,12 +11,18 @@ import axios, { AxiosInstance } from "axios";
 import { UpdateTestCaseData, UpdateTestResults } from "./interfaces.js";
 import { createTestRun, setRunStatus } from "./run.js";
 import { getUpdatingTestResult, uploadScreenshots } from "./result.js";
-import { createAzureTestAPIClient } from "./client.js";
 import { getTestCasesByPlanID } from "./plan.js";
 import { filterExecutedTestCase } from "./case.js";
+import { createAzureAPIClients } from "./client.js";
+import { IWorkItemTrackingApi } from "azure-devops-node-api/WorkItemTrackingApi.js";
+
+export interface AzureAPIClients {
+  testAPIClient: ITestApi;
+  workItemTrackingAPIClient: IWorkItemTrackingApi;
+}
 
 class AzureDevopsResultImporter {
-  private azureTestApiClient?: ITestApi;
+  private azureApiClients?: AzureAPIClients;
   private axiosClient?: AxiosInstance;
   private ajv: Ajv;
   private testReportSchema: Schema;
@@ -77,7 +83,8 @@ class AzureDevopsResultImporter {
 
     if (validFormatReports.length > 0) {
       const configurationMergedReports: TestReport[] = await this.mergeReportByConfigId(validFormatReports);
-      const azureTestApiClient = await this.getAzureTestAPIClient(config);
+      const azureApiClients = await this.getAzureAPIClients(config);
+      const azureTestApiClient = azureApiClients.testAPIClient;
       const axiosClient = await this.getAxiosClient(config);
 
       const executedConfigurationIds: number[] = configurationMergedReports.map((report: TestReport) =>
@@ -90,21 +97,26 @@ class AzureDevopsResultImporter {
         .filter((result) => result)
         .map((result: TestCaseResult) => result.testCase?.id ?? "");
       const testCasesOnPlan = await getTestCasesByPlanID(axiosClient, config.planId, config.suiteId);
-      const testCases = config.override
+      const updatingTestCases = config.override
         ? testCasesOnPlan
         : filterExecutedTestCase(testCasesOnPlan, executedTestCaseIds);
-      const testRun = await createTestRun(azureTestApiClient, testCases, config, executedConfigurationIds);
+      const testRun = await createTestRun(
+        azureTestApiClient,
+        updatingTestCases,
+        config,
+        executedConfigurationIds
+      );
       if (!testRun.id) {
         throw new Error("Failed to create test Run!");
       }
       await setRunStatus(azureTestApiClient, config, testRun.id, AzureTestRunStatus.INPROGRESS);
 
       const updatingResult: UpdateTestCaseData = await getUpdatingTestResult(
-        azureTestApiClient,
+        azureApiClients,
         configurationMergedReports,
         config.project,
         testRun.id,
-        testCases
+        updatingTestCases
       );
 
       let importedTestResults: TestCaseResult[] = [];
@@ -142,11 +154,11 @@ class AzureDevopsResultImporter {
     return { testCaseResults: [], attachments: [] };
   }
 
-  private async getAzureTestAPIClient(config: AzureResultImporterConfig): Promise<ITestApi> {
-    if (!this.azureTestApiClient) {
-      this.azureTestApiClient = await createAzureTestAPIClient(config.pat, config.organizationUrl);
+  private async getAzureAPIClients(config: AzureResultImporterConfig): Promise<AzureAPIClients> {
+    if (!this.azureApiClients) {
+      this.azureApiClients = await createAzureAPIClients(config.pat, config.organizationUrl);
     }
-    return this.azureTestApiClient;
+    return this.azureApiClients;
   }
 
   private async getAxiosClient(config: AzureResultImporterConfig): Promise<AxiosInstance> {

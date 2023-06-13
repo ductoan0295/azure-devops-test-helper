@@ -8,16 +8,20 @@ import {
 import { AzureTestResultOutcome, AzureTestRunStatus } from "./constants.js";
 import { UpdateTestCaseData } from "./interfaces.js";
 import { TestReport, Screenshot } from "./types.js";
-import { getStepStartingValueByTestCaseId } from "./case.js";
+import { Step, getTestCaseSteps } from "./case.js";
+import { AzureAPIClients } from "./importer.js";
 
 export async function getUpdatingTestResult(
-  azureClient: ITestApi,
+  azureClients: AzureAPIClients,
   testReports: TestReport[],
   project: string,
   testRunId: number,
   testCases: unknown[]
 ): Promise<UpdateTestCaseData> {
-  let createdTestResults: TestCaseResult[] = await azureClient.getTestResults(project, testRunId);
+  let createdTestResults: TestCaseResult[] = await azureClients.testAPIClient.getTestResults(
+    project,
+    testRunId
+  );
   createdTestResults = createdTestResults.map((result: TestCaseResult) => ({
     ...result,
     ...{ outcome: AzureTestResultOutcome.NotExecuted, state: AzureTestRunStatus.COMPLETED },
@@ -25,6 +29,8 @@ export async function getUpdatingTestResult(
 
   const updatingResults: TestCaseResult[] = [];
   const screenshots: Screenshot[] = [];
+
+  const testCaseStepMap = await getTestCaseSteps(testCases, azureClients);
 
   createdTestResults.forEach((createdResult: TestCaseResult) => {
     const configMatchedReport = testReports.find(
@@ -37,37 +43,15 @@ export async function getUpdatingTestResult(
         (result: TestCaseResult) => result.testCase?.id && result.testCase.id === createdResult.testCase?.id
       );
 
-      const stepStartingValue = getStepStartingValueByTestCaseId(testCases, createdResult.testCase?.id);
-
-      if (
-        stepStartingValue &&
-        stepStartingValue === executedResult?.iterationDetails?.[0].actionResults?.[0].iterationId
-      ) {
-        const resetActionPathResult = setActionPath(stepStartingValue, executedResult);
-        updatingResults.push({ ...createdResult, ...resetActionPathResult });
-
-        configMatchedReport.screenshots.forEach((screenshot: Screenshot) => {
-          if (screenshot.testCaseId && screenshot.testCaseId === createdResult.testCase?.id) {
-            const iterationIndex = executedResult.iterationDetails?.findIndex(
-              (iterationDetail: TestIterationDetailsModel) => iterationDetail.id === screenshot.iterationId
-            );
-
-            if (iterationIndex !== undefined && executedResult.iterationDetails) {
-              const matchedIterationDetails = executedResult.iterationDetails[iterationIndex];
-              const matchedActionResultIndex = matchedIterationDetails.actionResults?.findIndex(
-                (actionResult: TestActionResultModel) => actionResult.actionPath === screenshot.actionPath
-              );
-
-              if (matchedActionResultIndex !== undefined)
-                screenshot.actionPath =
-                  resetActionPathResult.iterationDetails?.[iterationIndex].actionResults?.[
-                    matchedActionResultIndex
-                  ].actionPath ?? "";
-            }
-          }
-        });
-      } else {
-        updatingResults.push({ ...createdResult, ...executedResult });
+      if (executedResult) {
+        const correctActionPathData = setActionPath(
+          createdResult,
+          executedResult,
+          testCaseStepMap,
+          configMatchedReport.screenshots
+        );
+        updatingResults.push({ ...createdResult, ...correctActionPathData.result });
+        configMatchedReport.screenshots = correctActionPathData.screenshots;
       }
 
       const testCaseId = executedResult?.testCase?.id;
@@ -117,27 +101,94 @@ export async function uploadScreenshots(
   return uploadedTestAttachmentReferences;
 }
 
-function setActionPath(startingIndex: number, testCaseResult: TestCaseResult): TestCaseResult {
-  const iterationDetails = testCaseResult.iterationDetails?.map(
-    (iterationDetail: TestIterationDetailsModel) => {
-      let currentId = startingIndex;
-      return {
-        ...iterationDetail,
-        ...{
-          actionResults: iterationDetail.actionResults?.map((actionResult: TestActionResultModel) => {
-            const actionPathChangedActionResult = {
-              ...actionResult,
-              ...{ stepIdentifier: String(currentId), actionPath: convertIdToAzureActionPathId(currentId) },
+function setActionPath(
+  createdTestCaseResult: TestCaseResult,
+  executedTestCaseResult: TestCaseResult,
+  testCaseStepMap: Map<string, Step[]>,
+  screenshots?: Screenshot[]
+): { result: TestCaseResult; screenshots: Screenshot[] } {
+  const testCaseID = createdTestCaseResult.testCase?.id;
+  const cloneExecutedTestCaseResult = { ...executedTestCaseResult };
+  const correctActionPathScreenshots: Screenshot[] = [];
+
+  if (testCaseID && testCaseStepMap.get(testCaseID) && cloneExecutedTestCaseResult.iterationDetails) {
+    cloneExecutedTestCaseResult.iterationDetails.forEach((iterationDetail) => {
+      let actionIndex = 0;
+      const steps = testCaseStepMap.get(testCaseID);
+      steps?.forEach((step) => {
+        if (iterationDetail.actionResults && actionIndex < iterationDetail.actionResults.length) {
+          const sharedStepActionResults: TestActionResultModel[] = [];
+
+          const failedScreenshot = screenshots?.find(
+            (screenshot) =>
+              screenshot.testCaseId === testCaseID && screenshot.iterationId === iterationDetail.id
+          );
+          let failedActionPath = "";
+
+          if (step.children && step.children.length && step.revision) {
+            const sharedStepActionResult: TestActionResultModel = {
+              sharedStepModel: { id: Number(step.ref), revision: step.revision },
+              actionPath: `${convertIdToAzureActionPathId(Number(step.id))}`,
+              iterationId: iterationDetail.id,
+              stepIdentifier: `${step.id}`,
+              outcome: AzureTestResultOutcome.Passed,
             };
-            currentId++;
-            return actionPathChangedActionResult;
-          }),
-        },
-      };
-    }
-  );
-  const result: TestCaseResult = { ...testCaseResult, ...{ iterationDetails: iterationDetails } };
-  return result;
+
+            for (const childStep of step.children) {
+              const unsetActionResult = iterationDetail.actionResults[actionIndex];
+              actionIndex++;
+              unsetActionResult.stepIdentifier = `${step.id};${childStep.id}`;
+              unsetActionResult.actionPath = `${convertIdToAzureActionPathId(
+                Number(step.id)
+              )}${convertIdToAzureActionPathId(Number(childStep.id))}`;
+
+              if (unsetActionResult.outcome === AzureTestResultOutcome.Failed) {
+                sharedStepActionResult.outcome === AzureTestResultOutcome.Failed;
+                failedActionPath = unsetActionResult.actionPath;
+              }
+
+              if (
+                unsetActionResult.outcome === AzureTestResultOutcome.NotExecuted &&
+                sharedStepActionResult.outcome !== AzureTestResultOutcome.Failed
+              ) {
+                sharedStepActionResult.outcome === AzureTestResultOutcome.NotExecuted;
+              }
+
+              if (step.children.indexOf(childStep) === 0) {
+                sharedStepActionResult.startedDate = unsetActionResult.startedDate;
+              }
+
+              if (step.children.indexOf(childStep) === step.children.length - 1) {
+                sharedStepActionResult.completedDate = unsetActionResult.completedDate;
+              }
+            }
+
+            sharedStepActionResults.push(sharedStepActionResult);
+          }
+
+          iterationDetail.actionResults.push(...sharedStepActionResults);
+
+          if (!step.children || step.children.length === 0) {
+            const unsetActionResult = iterationDetail.actionResults[actionIndex];
+            unsetActionResult.stepIdentifier = step.id;
+            unsetActionResult.actionPath = convertIdToAzureActionPathId(Number(step.id));
+            actionIndex++;
+            if (unsetActionResult.outcome === AzureTestResultOutcome.Failed) {
+              failedActionPath = unsetActionResult.actionPath;
+            }
+          }
+
+          if (failedScreenshot && failedActionPath)
+            correctActionPathScreenshots.push({
+              ...failedScreenshot,
+              ...{ actionPath: failedActionPath },
+            });
+        }
+      });
+    });
+  }
+
+  return { result: cloneExecutedTestCaseResult, screenshots: correctActionPathScreenshots };
 }
 
 function convertIdToAzureActionPathId(id: number): string {
