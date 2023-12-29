@@ -51,22 +51,21 @@ export async function getUpdatingTestResult(
           configMatchedReport.screenshots
         );
         updatingResults.push({ ...createdResult, ...correctActionPathData.result });
-        configMatchedReport.screenshots = correctActionPathData.screenshots;
-      }
 
-      const testCaseId = executedResult?.testCase?.id;
-      configMatchedReport.screenshots?.forEach((screenshot: Screenshot) => {
-        if (
-          screenshot.testCaseId === testCaseId &&
-          executedResult?.iterationDetails?.find(
-            (iteration: TestIterationDetailsModel) => screenshot.iterationId === iteration.id
+        const testCaseId = executedResult?.testCase?.id;
+        correctActionPathData.screenshots.forEach((screenshot: Screenshot) => {
+          if (
+            screenshot.testCaseId === testCaseId &&
+            executedResult?.iterationDetails?.find(
+              (iteration: TestIterationDetailsModel) => screenshot.iterationId === iteration.id
+            )
           )
-        )
-          screenshots.push({
-            ...screenshot,
-            ...{ testCaseResultId: createdResult.id },
-          });
-      });
+            screenshots.push({
+              ...screenshot,
+              ...{ testCaseResultId: createdResult.id },
+            });
+        });
+      }
     } else {
       updatingResults.push(createdResult);
     }
@@ -119,16 +118,25 @@ function setActionPath(
         if (iterationDetail.actionResults && actionIndex < iterationDetail.actionResults.length) {
           const sharedStepActionResults: TestActionResultModel[] = [];
 
-          const failedScreenshot = screenshots?.find(
-            (screenshot) =>
-              screenshot.testCaseId === testCaseID && screenshot.iterationId === iterationDetail.id
-          );
-          let failedActionPath = "";
+          const actionPath = convertIdToAzureActionPathId(Number(step.id));
+
+          const iterationScreenshots: Screenshot[] =
+            screenshots
+              ?.filter(
+                (screenshot: Screenshot) =>
+                  screenshot.testCaseId === testCaseID &&
+                  screenshot.iterationId === iterationDetail.id &&
+                  screenshot.actionPath === actionPath
+              )
+              .map((screenshot: Screenshot) => {
+                return { ...screenshot, ...{ actionPath: actionPath } };
+              }) ?? [];
+          if (iterationScreenshots) correctActionPathScreenshots.push(...iterationScreenshots);
 
           if (step.children && step.children.length && step.revision) {
             const sharedStepActionResult: TestActionResultModel = {
               sharedStepModel: { id: Number(step.ref), revision: step.revision },
-              actionPath: `${convertIdToAzureActionPathId(Number(step.id))}`,
+              actionPath: actionPath,
               iterationId: iterationDetail.id,
               stepIdentifier: `${step.id}`,
               outcome: AzureTestResultOutcome.Passed,
@@ -138,13 +146,12 @@ function setActionPath(
               const unsetActionResult = iterationDetail.actionResults[actionIndex];
               actionIndex++;
               unsetActionResult.stepIdentifier = `${step.id};${childStep.id}`;
-              unsetActionResult.actionPath = `${convertIdToAzureActionPathId(
-                Number(step.id)
-              )}${convertIdToAzureActionPathId(Number(childStep.id))}`;
+              unsetActionResult.actionPath = `${actionPath}${convertIdToAzureActionPathId(
+                Number(childStep.id)
+              )}`;
 
               if (unsetActionResult.outcome === AzureTestResultOutcome.Failed) {
                 sharedStepActionResult.outcome === AzureTestResultOutcome.Failed;
-                failedActionPath = unsetActionResult.actionPath;
               }
 
               if (
@@ -171,18 +178,9 @@ function setActionPath(
           if (!step.children || step.children.length === 0) {
             const unsetActionResult = iterationDetail.actionResults[actionIndex];
             unsetActionResult.stepIdentifier = step.id;
-            unsetActionResult.actionPath = convertIdToAzureActionPathId(Number(step.id));
+            unsetActionResult.actionPath = actionPath;
             actionIndex++;
-            if (unsetActionResult.outcome === AzureTestResultOutcome.Failed) {
-              failedActionPath = unsetActionResult.actionPath;
-            }
           }
-
-          if (failedScreenshot && failedActionPath)
-            correctActionPathScreenshots.push({
-              ...failedScreenshot,
-              ...{ actionPath: failedActionPath },
-            });
         }
       });
     });

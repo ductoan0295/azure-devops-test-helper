@@ -31,7 +31,9 @@ class AzureDevopsResultImporter {
   constructor() {
     this.ajv = new Ajv();
     addFormats(this.ajv);
-    const dirname = url.fileURLToPath(new URL(".", import.meta.url));
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    const dirname = url.fileURLToPath(new URL(".", import.meta.url)) ?? __dirname;
     this.testReportSchema = JSON.parse(
       fs.readFileSync(path.join(dirname, "./schema/TestReportSchema.json")).toString()
     );
