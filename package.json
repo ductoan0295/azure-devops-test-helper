@@ -1,6 +1,6 @@
 {
   "name": "azure-devops-test-helper",
-  "version": "0.0.10",
+  "version": "0.0.11",
   "description": "Import JSON result with attachments into Azure Test Plan",
   "author": "Duc Toan <ductoan0295@gmail.com>",
   "homepage": "https://github.com/ductoan0295/azure-devops-test-helper",

@@ -114,24 +114,12 @@ function setActionPath(
     cloneExecutedTestCaseResult.iterationDetails.forEach((iterationDetail) => {
       let actionIndex = 0;
       const steps = testCaseStepMap.get(testCaseID);
+      const actionPathCorrectionMap: Map<string, string> = new Map<string, string>();
       steps?.forEach((step) => {
         if (iterationDetail.actionResults && actionIndex < iterationDetail.actionResults.length) {
           const sharedStepActionResults: TestActionResultModel[] = [];
 
           const actionPath = convertIdToAzureActionPathId(Number(step.id));
-
-          const iterationScreenshots: Screenshot[] =
-            screenshots
-              ?.filter(
-                (screenshot: Screenshot) =>
-                  screenshot.testCaseId === testCaseID &&
-                  screenshot.iterationId === iterationDetail.id &&
-                  screenshot.actionPath === actionPath
-              )
-              .map((screenshot: Screenshot) => {
-                return { ...screenshot, ...{ actionPath: actionPath } };
-              }) ?? [];
-          if (iterationScreenshots) correctActionPathScreenshots.push(...iterationScreenshots);
 
           if (step.children && step.children.length && step.revision) {
             const sharedStepActionResult: TestActionResultModel = {
@@ -144,6 +132,7 @@ function setActionPath(
 
             for (const childStep of step.children) {
               const unsetActionResult = iterationDetail.actionResults[actionIndex];
+              actionPathCorrectionMap.set(String(unsetActionResult.actionPath), actionPath);
               actionIndex++;
               unsetActionResult.stepIdentifier = `${step.id};${childStep.id}`;
               unsetActionResult.actionPath = `${actionPath}${convertIdToAzureActionPathId(
@@ -178,11 +167,26 @@ function setActionPath(
           if (!step.children || step.children.length === 0) {
             const unsetActionResult = iterationDetail.actionResults[actionIndex];
             unsetActionResult.stepIdentifier = step.id;
+            actionPathCorrectionMap.set(String(unsetActionResult.actionPath), actionPath);
             unsetActionResult.actionPath = actionPath;
             actionIndex++;
           }
         }
       });
+
+      const iterationScreenshots: Screenshot[] =
+        screenshots
+          ?.filter(
+            (screenshot: Screenshot) =>
+              screenshot.testCaseId === testCaseID && screenshot.iterationId === iterationDetail.id
+          )
+          .map((screenshot: Screenshot) => {
+            return {
+              ...screenshot,
+              ...{ actionPath: String(actionPathCorrectionMap.get(screenshot.actionPath)) },
+            };
+          }) ?? [];
+      if (iterationScreenshots) correctActionPathScreenshots.push(...iterationScreenshots);
     });
   }
 

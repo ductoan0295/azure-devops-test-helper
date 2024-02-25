@@ -146,7 +146,6 @@ class AzureDevopsResultImporter {
           testRun.id
         );
       } catch (error: unknown) {
-        await setRunStatus(azureTestApiClient, config, testRun.id, AzureTestRunStatus.ABORTED);
         throw new Error(
           "Failed to upload screenshot(s) into the created Test Run! with the following error: \n" + error
         );
